@@ -1,0 +1,94 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: fetch-model-scripts
+data:
+  fetch_model.sh: |-
+    #!/usr/bin/bash
+    apt-get update -y && \
+      apt-get install -y --no-install-recommends \
+      git git-lfs rsync
+    git lfs install
+    cd /download
+    echo "Saving model into /download..."
+    time git clone -c http.sslverify=false --depth=1 https://${HF_USERNAME}:${HF_TOKEN}@huggingface.co/${MODEL_PATH}; echo "cloned"
+    echo "Copying to the bucket"
+    time rsync --inplace --info=progress2 --exclude .git -a /download/Llama-3.1-8B-Instruct/ /data/Llama-3.1-8B-Instruct/ || exit 0
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: data-loader-llama-8b
+  labels:
+    app: data-loader-llama-8b
+spec:
+  ttlSecondsAfterFinished: 120
+  template:
+    metadata:
+      annotations:
+        gke-gcsfuse/volumes: "true"
+      labels:
+        app: data-loader-llama-8b
+    spec:
+      serviceAccountName: bucket-sa
+      restartPolicy: OnFailure
+      containers:
+      - name: job
+        image: gcr.io/google.com/cloudsdktool/google-cloud-cli:slim
+        command:
+        - /scripts/fetch_model.sh
+        resources:
+          requests:
+            cpu: "1"
+            memory: "8Gi"
+          limits:
+            cpu: "2"
+            memory: "8Gi"
+        env:
+        - name: MODEL_PATH
+          value: "unsloth/Llama-3.1-8B-Instruct"
+        - name: HF_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: hf-secret
+              key: hf_token
+        - name: HF_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: hf-secret
+              key: hf_username
+        volumeMounts:
+        - mountPath: "/scripts/"
+          name: scripts-volume
+          readOnly: true
+        - name: gcs-fuse-csi-ephemeral
+          mountPath: /data
+          readOnly: false
+        - name: download-volume
+          mountPath: /download
+      volumes:
+      - name: scripts-volume
+        configMap:
+          defaultMode: 0700
+          name: fetch-model-scripts
+      - name: gcs-fuse-csi-ephemeral
+        csi:
+          driver: gcsfuse.csi.storage.gke.io
+          readOnly: false
+          volumeAttributes:
+            bucketName: epam-team-gpu-benchmark
+            mountOptions: "implicit-dirs,metadata-cache:ttl-secs:-1,file-cache:max-size-mb:-1,file-cache:cache-file-for-range-read:false,file-cache:enable-parallel-downloads:true,file-cache:download-chunk-size-mb:32,metadata-cache:stat-cache-max-size-mb:32,metadata-cache:ttl-secs:3600,metadata-cache:type-cache-max-size-mb:4"
+            gcsfuseLoggingSeverity: warning
+      - name: download-volume
+        ephemeral:
+          volumeClaimTemplate:
+            metadata:
+              labels:
+                type: ephemeral
+            spec:
+              accessModes: ["ReadWriteOnce"]
+              resources:
+                requests:
+                  storage: 50Gi
+              storageClassName: "premium-rwo"
+
