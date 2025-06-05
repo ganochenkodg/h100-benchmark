@@ -13,7 +13,6 @@ spec:
       labels:
         app: vllm
     spec:
-      serviceAccountName: bucket-sa
       containers:
       - command: [ "/bin/sh", "-c" ]
         args: [ "pip3 install --upgrade transformers; vllm serve google/gemma-3-27b-it" ]
