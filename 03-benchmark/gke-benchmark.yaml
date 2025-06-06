@@ -20,6 +20,17 @@ spec:
         image: dganochenko/inference-benchmark:0.0.1
           #image: google/cloud-sdk 
         name: benchmark
+        env:
+        - name: HF_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: hf-secret
+              key: hf_token
+        - name: HF_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: hf-secret
+              key: hf_username
         resources:
           limits:
             cpu: '1'
