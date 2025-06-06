@@ -38,5 +38,11 @@ spec:
           requests:
             cpu: '1'
             memory: 8Gi
-
+      nodeSelector:
+        eks.amazonaws.com/compute-type: auto
+      tolerations:
+      - effect: NoSchedule
+        key: nvidia.com/gpu
+        operator: Equal
+        value: present
 
