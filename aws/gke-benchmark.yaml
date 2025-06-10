@@ -31,6 +31,20 @@ spec:
             secretKeyRef:
               name: hf-secret
               key: hf_username
+        - name: BACKEND
+          value: vllm # other options are tgi, tensorrt_llm_triton, jetstream to benchmark those model servers
+        - name: PROMPT_DATASET
+          value: "sharegpt"
+        - name: INPUT_LENGTH
+          value: "1024"
+        - name: OUTPUT_LENGTH
+          value: "1024"
+        - name: REQUEST_RATES
+          value: "8,16,32,64,128"
+        - name: BENCHMARK_TIME_SECONDS
+          value: "120"
+        - name: FILE_PREFIX
+          value: "benchmark"
         resources:
           limits:
             cpu: '2'
